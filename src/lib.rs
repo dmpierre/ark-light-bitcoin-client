@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 pub mod gadgets;
+pub mod utils;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[allow(non_snake_case)]

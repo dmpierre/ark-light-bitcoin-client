@@ -69,6 +69,8 @@ impl<F: PrimeField> Base256Gadget<F> {
 
 #[cfg(test)]
 mod tests {
+    use crate::get_target;
+    use crate::{tests::get_test_block, utils::BlockHeaderVar};
     use ark_ff::{Field, PrimeField};
     use ark_r1cs_std::{
         alloc::{AllocVar, AllocationMode},
@@ -77,14 +79,6 @@ mod tests {
     };
     use ark_relations::r1cs::ConstraintSystem;
     use ark_vesta::Fr;
-    use num_bigint::BigUint;
-
-    use crate::{
-        gadgets::{BlockHeader, BlockHeaderVar},
-        tests::get_test_block,
-    };
-
-    use crate::get_target;
 
     #[test]
     fn calculate_base256_exponent() {
@@ -108,12 +102,9 @@ mod tests {
         let block = get_test_block();
         let expected_target = get_target(&block.blockHeaders[0]);
 
-        let block_header = BlockHeader {
-            block_header: block.blockHeaders[0].clone(),
-        };
         let block_header_var = BlockHeaderVar::<Fr>::new_variable(
             ark_relations::ns!(cs, "new_block_header_var"),
-            || Ok(&block_header),
+            || Ok(block.blockHeaders[0].clone()),
             AllocationMode::Witness,
         )
         .unwrap();

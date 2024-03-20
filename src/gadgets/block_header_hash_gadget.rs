@@ -28,10 +28,7 @@ impl<F: PrimeField> BlockHeaderHashGadget<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        gadgets::{BlockHashVar, BlockHeader},
-        tests::get_test_block,
-    };
+    use crate::{tests::get_test_block, utils::BlockHashVar};
     use ark_r1cs_std::eq::EqGadget;
     use ark_r1cs_std::{
         alloc::{AllocVar, AllocationMode},
@@ -44,12 +41,9 @@ mod tests {
     fn block_header_hash_gadget() {
         let cs = ConstraintSystem::<Fr>::new_ref();
         let block = get_test_block();
-        let block_header = BlockHeader {
-            block_header: block.blockHeaders[0].clone(),
-        };
         let block_header_var = BlockHeaderVar::<Fr>::new_variable(
             ark_relations::ns!(cs, "new_block_header_var"),
-            || Ok(&block_header),
+            || Ok(block.blockHeaders[0].clone()),
             AllocationMode::Witness,
         )
         .unwrap();
