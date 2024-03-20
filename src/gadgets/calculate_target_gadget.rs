@@ -84,6 +84,8 @@ mod tests {
         tests::get_test_block,
     };
 
+    use crate::get_target;
+
     #[test]
     fn calculate_base256_exponent() {
         let cs = ConstraintSystem::<Fr>::new_ref();
@@ -104,10 +106,7 @@ mod tests {
         let cs = ConstraintSystem::<Fr>::new_ref();
 
         let block = get_test_block();
-        let target_bytes = &block.blockHeaders[0][72..76];
-        let exponent = target_bytes[3];
-        let mantissa = BigUint::from_bytes_le(&target_bytes[0..3]);
-        let expected_target = mantissa * BigUint::from(256 as u16).pow(exponent as u32 - 3);
+        let expected_target = get_target(&block.blockHeaders[0]);
 
         let block_header = BlockHeader {
             block_header: block.blockHeaders[0].clone(),

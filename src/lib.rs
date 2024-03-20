@@ -1,10 +1,10 @@
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 pub mod gadgets;
-
-pub enum Error {}
 
 #[derive(Serialize, Deserialize, Debug)]
 #[allow(non_snake_case)]
@@ -36,12 +36,33 @@ pub fn read_blocks(
     (btc_blocks.prevBlockHash, private_inputs)
 }
 
+/// Returns the block hash in hex, using the block header
+/// Consists into hashing twice the block header using SHA256
+pub fn get_block_hash(block_header: &Vec<u8>) -> String {
+    let mut hasher_1 = Sha256::new();
+    let mut hasher_2 = Sha256::new();
+
+    hasher_1.update(block_header);
+    let result = hasher_1.finalize();
+    hasher_2.update(&result);
+    let result = hasher_2.finalize();
+    hex::encode(&result)
+}
+
+/// Returns the target as a BigUint
+/// Target is computed from the "bits" field. The bits field is found in the 72..76 bytes of the block header
+pub fn get_target(block_header: &Vec<u8>) -> BigUint {
+    let target_bytes = &block_header[72..76];
+    let exponent = target_bytes[3];
+    let mantissa = BigUint::from_bytes_le(&target_bytes[0..3]);
+    mantissa * BigUint::from(256 as u16).pow(exponent as u32 - 3)
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
     use num_bigint::BigUint;
     use num_traits::Num;
-    use sha2::{Digest, Sha256};
 
     /// Test block is in the same format as the one in the JSON file
     /// This JSON file is from the Nova scotia bitcoin example but in a different format
@@ -62,35 +83,42 @@ pub mod tests {
     }
 
     #[test]
+    fn raw_verify_multiple_blocks() {
+        let (_, blocks_batches) = read_blocks(80, 10);
+        for batch in blocks_batches {
+            let block_hashes =
+                serde_json::from_value::<Vec<String>>(batch.get("blockHashes").unwrap().clone())
+                    .unwrap();
+            let block_headers =
+                serde_json::from_value::<Vec<Vec<u8>>>(batch.get("blockHeaders").unwrap().clone())
+                    .unwrap();
+            for (block_hash, block_header) in block_hashes.iter().zip(block_headers) {
+                // Simply checking that the block header hashes to the expected block hash
+                // And that the target is equal to the expected target
+                let block_hash_computed = get_block_hash(&block_header);
+                assert_eq!(block_hash_computed, *block_hash);
+
+                let target = get_target(&block_header);
+                let bigint_block_hash = BigUint::from_str_radix(&block_hash, 16).unwrap();
+                assert!(BigUint::from_bytes_be(&bigint_block_hash.to_bytes_le()) < target);
+            }
+        }
+    }
+
+    #[test]
     fn raw_verify_single_block() {
         let block = get_test_block();
 
         // 1. Check that the block header hashes to a value equal to the expected block hash
-        // It consists into hashing twice the block header
-        // This is split in two due to the size of the int, which is 256 bits.
-        let mut hasher_1 = Sha256::new();
-        let mut hasher_2 = Sha256::new();
+        let block_hash = get_block_hash(&block.blockHeaders[0]);
+        assert_eq!(block_hash, block.blockHashes[0]);
 
-        hasher_1.update(&block.blockHeaders[0]);
-        let result = hasher_1.finalize();
-        hasher_2.update(&result);
-        let result = hasher_2.finalize();
-
-        let block_hash_hex_str = hex::encode(&result);
-        assert_eq!(block_hash_hex_str, block.blockHashes[0]);
-
-        // 2. Check that the previous block hash equals what is within the block header
-        // This is a straightforward comparison
-        // The previous block hash can be found in the 4..36 bytes of the block header
+        // 2. Check that the previous block hash equals what is within the 4..36 bytes of the block header
         let prev_block_hash = hex::encode(&block.blockHeaders[0][4..36]);
         assert_eq!(prev_block_hash, block.prevBlockHash);
 
         // 3. Check that the target is equal to the expected target
-        // Target is computed from the "bits" field. The bits field is found in the 72..76 bytes of the block header
-        let target_bytes = &block.blockHeaders[0][72..76];
-        let exponent = target_bytes[3];
-        let mantissa = BigUint::from_bytes_le(&target_bytes[0..3]);
-        let target = mantissa * BigUint::from(256 as u16).pow(exponent as u32 - 3);
+        let target = get_target(&block.blockHeaders[0]);
         let bigint_block_hash = BigUint::from_str_radix(&block.blockHashes[0], 16).unwrap();
 
         // 4. Check proof-of-work
