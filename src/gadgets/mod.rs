@@ -4,7 +4,7 @@ use ark_ff::PrimeField;
 use ark_r1cs_std::{eq::EqGadget, ToBytesGadget, ToConstraintFieldGadget};
 use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 
-use crate::utils::{BlockHashVar, BlockHeaderVar};
+use crate::utils::{BlockHashVar, BlockHeaderVar, BlockVar};
 
 use self::{
     block_header_hash_gadget::BlockHeaderHashGadget, calculate_target_gadget::BlockTargetGadget,
@@ -20,25 +20,25 @@ pub struct BTCBlockCheckerGadget<F: PrimeField> {
 impl<F: PrimeField> BTCBlockCheckerGadget<F> {
     pub fn check_block(
         cs: ConstraintSystemRef<F>,
-        prev_block_hash: BlockHashVar<F>,
-        block_hash: BlockHashVar<F>,
-        block_header: BlockHeaderVar<F>,
+        block: BlockVar<F>,
     ) -> Result<(), SynthesisError> {
         // Check that block hash is equal to current block hash
-        let computed_block_hash = BlockHeaderHashGadget::hash_block_header(block_header.clone())?;
-        computed_block_hash.enforce_equal(&block_hash.hash)?;
+        let computed_block_hash =
+            BlockHeaderHashGadget::hash_block_header(block.block_header.clone())?;
+        computed_block_hash.enforce_equal(&block.block_hash.hash)?;
 
         // Check that prev block hash is what is found within the block header
-        prev_block_hash
+        block
+            .prev_block_hash
             .hash
             .to_bytes()?
-            .enforce_equal(&block_header.block_header[4..36])?;
+            .enforce_equal(&block.block_header.block_header[4..36])?;
 
         // Compute target
-        let target = BlockTargetGadget::calculate_target(cs.clone(), block_header.clone())?;
+        let target = BlockTargetGadget::calculate_target(cs.clone(), block.block_header.clone())?;
 
         // Check pow
-        block_hash.hash.to_bytes()?.to_constraint_field()?[0].enforce_cmp(
+        block.block_hash.hash.to_bytes()?.to_constraint_field()?[0].enforce_cmp(
             &target,
             Ordering::Less,
             false,
@@ -51,6 +51,7 @@ impl<F: PrimeField> BTCBlockCheckerGadget<F> {
 mod tests {
     use super::*;
     use crate::tests::get_test_block;
+    use crate::utils::{Block, BlockVar};
     use ark_r1cs_std::alloc::{AllocVar, AllocationMode};
     use ark_r1cs_std::R1CSVar;
     use ark_relations::r1cs::ConstraintSystem;
@@ -59,37 +60,15 @@ mod tests {
     #[test]
     fn check_block() {
         let cs = ConstraintSystem::<Fr>::new_ref();
-        let block = get_test_block();
-
-        let prev_block_hash_var = BlockHashVar::<Fr>::new_variable(
-            ark_relations::ns!(cs, "new_block_hash_var"),
-            || Ok(&block.prevBlockHash),
-            AllocationMode::Constant,
-        )
-        .unwrap();
-
-        let block_hash_var = BlockHashVar::<Fr>::new_variable(
-            ark_relations::ns!(cs, "new_block_hash_var"),
-            || Ok(&block.blockHashes[0]),
-            AllocationMode::Constant,
-        )
-        .unwrap();
-
-        let block_header_var = BlockHeaderVar::<Fr>::new_variable(
-            ark_relations::ns!(cs, "new_block_header_var"),
-            || Ok(block.blockHeaders[0].clone()),
-            AllocationMode::Constant,
-        )
-        .unwrap();
-
-        BTCBlockCheckerGadget::<Fr>::check_block(
-            cs.clone(),
-            prev_block_hash_var,
-            block_hash_var,
-            block_header_var,
-        )
-        .unwrap();
-
+        let test_blocks = get_test_block();
+        let block = Block {
+            block_header: test_blocks.blockHeaders[0].clone(),
+            block_hash: test_blocks.blockHashes[0].clone(),
+            prev_block_hash: test_blocks.prevBlockHash.clone(),
+        };
+        let block_var =
+            BlockVar::new_variable(cs.clone(), || Ok(block), AllocationMode::Witness).unwrap();
+        BTCBlockCheckerGadget::<Fr>::check_block(cs.clone(), block_var).unwrap();
         assert!(cs.is_satisfied().unwrap());
     }
 

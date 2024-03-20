@@ -56,3 +56,39 @@ impl<F: PrimeField> AllocVar<Vec<u8>, F> for BlockHeaderVar<F> {
         Ok(Self { block_header })
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct Block {
+    pub block_header: Vec<u8>,
+    pub block_hash: String,
+    pub prev_block_hash: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct BlockVar<F: PrimeField> {
+    pub block_header: BlockHeaderVar<F>,
+    pub block_hash: BlockHashVar<F>,
+    pub prev_block_hash: BlockHashVar<F>,
+}
+
+impl<F: PrimeField> AllocVar<Block, F> for BlockVar<F> {
+    fn new_variable<T: Borrow<Block>>(
+        cs: impl Into<Namespace<F>>,
+        f: impl FnOnce() -> Result<T, SynthesisError>,
+        mode: AllocationMode,
+    ) -> Result<Self, SynthesisError> {
+        let cs = cs.into();
+        let block = f()?;
+        let block_header =
+            BlockHeaderVar::new_variable(cs.clone(), || Ok(&block.borrow().block_header), mode)?;
+        let block_hash =
+            BlockHashVar::new_variable(cs.clone(), || Ok(&block.borrow().block_hash), mode)?;
+        let prev_block_hash =
+            BlockHashVar::new_variable(cs.clone(), || Ok(&block.borrow().prev_block_hash), mode)?;
+        Ok(Self {
+            block_header,
+            block_hash,
+            prev_block_hash,
+        })
+    }
+}
