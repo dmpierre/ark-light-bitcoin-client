@@ -1,0 +1,31 @@
+[package]
+name = "ark-light-bitcoin-client"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ark-r1cs-std = { git = "https://github.com/arnaucube/ark-r1cs-std-cherry-picked/" }
+hex = "0.4.3"
+hex-literal = "0.4.1"
+num-bigint = "0.4.4"
+num-traits = "0.2.18"
+serde = { version="1.0.197", features=["derive"] }
+serde_json = "1.0.114"
+sha2 = "0.10.8"
+ark-ec = "^0.4.0"
+ark-ff = "^0.4.0"
+ark-std = "^0.4.0"
+ark-crypto-primitives = { version = "^0.4.0", default-features = false, features = ["r1cs", "sponge", "crh"] }
+ark-relations = { version = "^0.4.0", default-features = false }
+ark-snark = { version = "^0.4.0"}
+ark-serialize = "^0.4.0"
+ark-pallas = {version="0.4.0", features=["r1cs"]}
+ark-vesta = {version="0.4.0", features=["r1cs"]}
+ark-bn254 = "0.4.0"
+thiserror = "1.0.58"
+
+[patch.crates-io]
+ark-r1cs-std = { git = "https://github.com/arnaucube/ark-r1cs-std-cherry-picked/" }
+
