@@ -1,10 +1,8 @@
-use std::cmp::Ordering;
-
+use crate::utils::{BlockHeaderVar, BlockVar};
 use ark_ff::PrimeField;
 use ark_r1cs_std::{eq::EqGadget, ToBytesGadget, ToConstraintFieldGadget};
 use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
-
-use crate::utils::{BlockHashVar, BlockHeaderVar, BlockVar};
+use std::cmp::Ordering;
 
 use self::{
     block_header_hash_gadget::BlockHeaderHashGadget, calculate_target_gadget::BlockTargetGadget,
@@ -50,15 +48,49 @@ impl<F: PrimeField> BTCBlockCheckerGadget<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::read_blocks;
     use crate::tests::get_test_block;
-    use crate::utils::{Block, BlockVar};
-    use ark_r1cs_std::alloc::{AllocVar, AllocationMode};
-    use ark_r1cs_std::R1CSVar;
+    use crate::utils::{Block, BlockHashVar, BlockVar};
+    use ark_r1cs_std::{
+        alloc::{AllocVar, AllocationMode},
+        R1CSVar,
+    };
     use ark_relations::r1cs::ConstraintSystem;
     use ark_vesta::Fr;
 
     #[test]
-    fn check_block() {
+    fn check_multiple_blocks_in_r1cs() {
+        // 5 batches of 5 blocks, i.e. 25 blocks in total are checked
+        let (mut prev_block_hash, blocks_batches) = read_blocks(5, 5);
+        for batch in blocks_batches {
+            let block_hashes =
+                serde_json::from_value::<Vec<String>>(batch.get("blockHashes").unwrap().clone())
+                    .unwrap();
+            let block_headers =
+                serde_json::from_value::<Vec<Vec<u8>>>(batch.get("blockHeaders").unwrap().clone())
+                    .unwrap();
+            for (i, (block_hash, block_header)) in
+                block_hashes.iter().zip(block_headers).enumerate()
+            {
+                let cs = ConstraintSystem::<Fr>::new_ref();
+                let block = Block {
+                    prev_block_hash: prev_block_hash.clone(),
+                    block_hash: block_hash.clone(),
+                    block_header: block_header.clone(),
+                };
+                let block_var =
+                    BlockVar::new_variable(cs.clone(), || Ok(block), AllocationMode::Witness)
+                        .unwrap();
+                let res = BTCBlockCheckerGadget::<Fr>::check_block(cs.clone(), block_var);
+                assert!(res.is_ok());
+                assert!(cs.is_satisfied().unwrap());
+                prev_block_hash = block_hash.clone();
+            }
+        }
+    }
+
+    #[test]
+    fn check_single_block_in_r1cs() {
         let cs = ConstraintSystem::<Fr>::new_ref();
         let test_blocks = get_test_block();
         let block = Block {
