@@ -94,7 +94,7 @@ pub mod tests {
                     .unwrap();
             for (block_hash, block_header) in block_hashes.iter().zip(block_headers) {
                 // Simply checking that the block header hashes to the expected block hash
-                // And that the target is equal to the expected target
+                // And that the pow is correct
                 let block_hash_computed = get_block_hash(&block_header);
                 assert_eq!(block_hash_computed, *block_hash);
 
