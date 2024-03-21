@@ -24,7 +24,7 @@ ark-serialize = "^0.4.0"
 ark-pallas = {version="0.4.0", features=["r1cs"]}
 ark-vesta = {version="0.4.0", features=["r1cs"]}
 ark-bn254 = "0.4.0"
-thiserror = "1.0.58"
+thiserror = "1.0.39"
 
 [patch.crates-io]
 ark-r1cs-std = { git = "https://github.com/arnaucube/ark-r1cs-std-cherry-picked/" }
