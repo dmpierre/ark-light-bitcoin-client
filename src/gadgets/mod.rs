@@ -61,7 +61,8 @@ mod tests {
     #[test]
     fn check_multiple_blocks_in_r1cs() {
         // 5 batches of 5 blocks, i.e. 25 blocks in total are checked
-        let (mut prev_block_hash, blocks_batches) = read_blocks(5, 5);
+        let file = include_str!("../data/btc-blocks.json");
+        let (mut prev_block_hash, blocks_batches) = read_blocks(5, 5, file);
         for batch in blocks_batches {
             let block_hashes =
                 serde_json::from_value::<Vec<String>>(batch.get("blockHashes").unwrap().clone())

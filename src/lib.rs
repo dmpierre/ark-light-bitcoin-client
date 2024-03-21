@@ -18,9 +18,9 @@ pub struct Blocks {
 pub fn read_blocks(
     n_batch: usize,
     block_count: usize,
+    file: &str,
 ) -> (String, Vec<HashMap<String, serde_json::Value>>) {
-    let btc_blocks: Blocks =
-        serde_json::from_str(include_str!("data/btc-blocks.json")).expect("Failed reading JSON");
+    let btc_blocks: Blocks = serde_json::from_str(file).expect("Failed reading JSON");
     let mut private_inputs = Vec::new();
     for i in 0..n_batch {
         let mut private_input = HashMap::new();
@@ -85,7 +85,8 @@ pub mod tests {
 
     #[test]
     fn raw_verify_multiple_blocks() {
-        let (_, blocks_batches) = read_blocks(80, 10);
+        let file = include_str!("data/btc-blocks.json");
+        let (_, blocks_batches) = read_blocks(80, 10, file);
         for batch in blocks_batches {
             let block_hashes =
                 serde_json::from_value::<Vec<String>>(batch.get("blockHashes").unwrap().clone())
