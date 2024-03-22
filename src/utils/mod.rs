@@ -4,9 +4,11 @@ use ark_crypto_primitives::crh::sha256::constraints::DigestVar;
 use ark_ff::PrimeField;
 use ark_r1cs_std::{
     alloc::{AllocVar, AllocationMode},
+    fields::fp::FpVar,
     uint8::UInt8,
+    ToBytesGadget, ToConstraintFieldGadget,
 };
-use ark_relations::r1cs::{Namespace, SynthesisError};
+use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 use num_bigint::BigUint;
 use num_traits::Num;
 
@@ -23,9 +25,15 @@ impl<F: PrimeField> AllocVar<String, F> for BlockHashVar<F> {
     ) -> Result<Self, SynthesisError> {
         let cs = cs.into();
         let hash = f()?;
-        let hash_bytes = BigUint::from_str_radix(hash.borrow(), 16)
+        let mut hash_bytes = BigUint::from_str_radix(hash.borrow(), 16)
             .expect("Couldn't parse hash string to BigUint")
             .to_bytes_be();
+        // If the hash is not 32 bytes long, we need to pad it with zeros
+        if hash_bytes.len() != 32 {
+            while hash_bytes.len() < 32 {
+                hash_bytes.insert(0, 0);
+            }
+        }
         let hash = DigestVar::new_variable(cs, || Ok(&hash_bytes), mode)?;
         Ok(Self { hash })
     }
